@@ -1,12 +1,24 @@
 import os
+import random
 import tensorflow as tf
 from PIL import Image
+from src.data.img.ImageHelper import ImageHelper
 
 
 class DataCreator():
+    def __init__(self, sourcePath, markPath, outPath, width = 640, height = 480):
+        self._cwd = os.getcwd() + "/"
+        self._sourcePath = self._cwd + sourcePath
+        self._markPath = self._cwd + markPath
+        self._markImg = Image.open(self._markPath)
+        if self._markImg.mode != 'RGBA':
+            self._markImg = self._markImg.convert('RGBA')
+        [self._markWidth, self._markHeight] = self._markImg.size
+        self._outPath = self._cwd + outPath
+        self._tWidth = width
+        self._tHeight = height
     
-    @staticmethod
-    def create(sourcePath, markPath, width, height):
+    def create(self):
         """ Create learning data
 
         Args: 
@@ -21,13 +33,43 @@ class DataCreator():
         Raise:
             IOError          
         """
+        count = 0
 
-        cwd = os.getcwd()
-        cwd = cwd + "/"
-        markPath = cwd + markPath
-        waterImg = Image.open(markPath)
-        writer = tf.python_io.TFRecordWriter("train.tfrecords")
-        for imgName in os.listdir(sourcePath):
-            path = cwd + sourcePath + "/" + imgName
+        # writer = tf.python_io.TFRecordWriter("train.tfrecords")
+        for imgName in os.listdir(self._sourcePath):
+            path = self._sourcePath + "/" + imgName
             img = Image.open(path)
-            
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+            [width, height] = img.size
+            wNum = int(round((width - self._tWidth) / 100))
+            hNum = int(round((height - self._tHeight) / 100))
+            for x in range(wNum):
+                for y in range(hNum):
+                    regin = (x * 100, y * 100, x * 100 + self._tWidth, y * 100 + self._tHeight)
+                    tmpImg = img.crop(regin)
+                    count = count + 1
+                    if count % 2 == 1:
+                        tmpImg = self._addWaterRandPos(tmpImg)
+                    tmpImg.save(self._outPath + "/" + str(count) + ".jpg")
+
+
+    def _addWaterRandPos(self, sImg):
+        # Random size, 15% ~ 30%
+        percent = 15.0 + random.randint(0, 15)
+        
+        # x1 start with 10 percent
+        x1 = 10 + random.randint(0, 50)
+        # y1 start with 10 percent
+        y1 = 10 + random.randint(0, 50)
+
+        x2 = x1 + percent
+        y2 = y1 + self._markHeight * percent / self._markWidth
+
+        x1 = x1 / 100.0
+        y1 = y1 / 100.0
+        x2 = x2 / 100.0
+        y2 = y2 / 100.0
+        return ImageHelper.AddWaterWithImg(sImg, self._markImg, x1, y1, x2, y2)
+
+    
