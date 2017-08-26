@@ -44,12 +44,5 @@ class ImageHelper():
         
         tImg = wImg.resize((x2 - x1, y2 - y1), Image.ANTIALIAS)
         box = (x1, y1, x2, y2)
-        rImg = sImg.paste(tImg, box)
-        sImg.show()
-        exit()
-        print(tImg)
-        print(sImg)
-        print(x1, y1, x2, y2)
-        print(rImg)
-        exit()
-        return rImg
+        sImg.paste(tImg, box)
+        return sImg
