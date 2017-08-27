@@ -37,10 +37,10 @@ def GetModel(x):
         h_pool3 = max_pool_2x2(h_conv3)
 
     with tf.name_scope('fc1'):
-        w_fc1 = weightVariable([80 * 60 * 64, 4092])
+        w_fc1 = weightVariable([20 * 15 * 64, 4092])
         b_fc1 = biasVariable([4092])
 
-        h_pool2_flat = tf.reshape(h_pool3, [-1, 80 * 60 * 64])
+        h_pool2_flat = tf.reshape(h_pool3, [-1, 20 * 15 * 64])
         h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, w_fc1) + b_fc1)
 
     with tf.name_scope('dropout'):

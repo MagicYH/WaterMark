@@ -55,16 +55,16 @@ class DataCreator():
                     regin = (x * 100, y * 100, x * 100 + self._tWidth, y * 100 + self._tHeight)
                     tmpImg = img.crop(regin)
                     count = count + 1
-                    label = 0
+
+                    label = [1, 0]
                     if count % 2 == 1:
                         tmpImg = self._addWaterRandPos(tmpImg)
-                        label = 1
+                        label = [0, 1]
+                    imgRaw = tmpImg.tobytes()
                     
-                    # tmpImg = tmpImg.convert("L")
                     if count % 200 == 1:
                         tmpImg.save(self._outPath + "/" + str(count) + ".png")
-                    # tmpImg.save(self._outPath + "/" + str(count) + ".png")
-                    imgRaw = tmpImg.tobytes()
+                    
                     example = tf.train.Example(features=tf.train.Features(feature={
                         "label": tf.train.Feature(int64_list=tf.train.Int64List(value=[label])),
                         'img_raw': tf.train.Feature(bytes_list=tf.train.BytesList(value=[imgRaw]))
