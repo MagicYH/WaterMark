@@ -66,7 +66,7 @@ class DataCreator():
                         tmpImg.save(self._outPath + "/" + str(count) + ".png")
                     
                     example = tf.train.Example(features=tf.train.Features(feature={
-                        "label": tf.train.Feature(int64_list=tf.train.Int64List(value=[label])),
+                        "label": tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
                         'img_raw': tf.train.Feature(bytes_list=tf.train.BytesList(value=[imgRaw]))
                     }))
                     writer.write(example.SerializeToString())  #serialize example into string

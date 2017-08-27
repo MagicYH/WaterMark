@@ -31,7 +31,7 @@ def Train(inputPath, width, height):
     train_writer.add_graph(tf.get_default_graph())
 
     img, label = read_data(inputPath, width, height)
-    img_batch, label_batch = tf.train.shuffle_batch([img, label], batch_size=10, capacity=1000, min_after_dequeue=500)
+    img_batch, label_batch = tf.train.shuffle_batch([img, label], batch_size=50, capacity=1000, min_after_dequeue=500)
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -40,16 +40,11 @@ def Train(inputPath, width, height):
         print("Data and model are ready, begin to train")
         for i in range(1000):
             img_data, img_label = sess.run([img_batch, label_batch])
-            print(img_label)
-            exit()
-            # if i % 20 == 0:
-            #     train_accuracy = accuracy.eval(feed_dict={
-            #             x: img_data, y_: img_label, keep_prob: 1.0})
-            #     print('step %d, training accuracy %g' % (i, train_accuracy))
-            # train_step.run(feed_dict={x: img_data, y_: img_label, keep_prob: 0.5})
-            # res = sess.run([y_conv], feed_dict={x: img_data, y_: img_label, keep_prob: 1.0})
-            # print(img_label)
-            # print(res)
+            if i % 2 == 0:
+                train_accuracy = accuracy.eval(feed_dict={
+                        x: img_data, y_: img_label, keep_prob: 1.0})
+                print('step %d, training accuracy %g' % (i, train_accuracy))
+            train_step.run(feed_dict={x: img_data, y_: img_label, keep_prob: 0.5})
 
         # print('test accuracy %g' % accuracy.eval(feed_dict={
         #         x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
@@ -61,7 +56,7 @@ def read_data(inputPath, width, height):
     _, serialized_example = reader.read(filename_queue)   # return file name and file
     features = tf.parse_single_example(serialized_example,
                                        features={
-                                           'label': tf.FixedLenFeature([], tf.string),
+                                           'label': tf.FixedLenFeature([2], tf.int64),
                                            'img_raw' : tf.FixedLenFeature([], tf.string),
                                        })
 
@@ -70,8 +65,11 @@ def read_data(inputPath, width, height):
     img = tf.cast(img, tf.float32)
     # img = tf.cast(img, tf.float32) * (1. / 255)
     # label = tf.cast(features['label'], tf.int64)
-    label = tf.decode_raw(features['img_raw'], tf.uint8)
-    label = tf.reshape(label, [2, 1])
+    # label = tf.decode_raw(features['img_raw'], tf.uint8)
+    # label = tf.reshape(label, [2, 1])
+    # label = tf.cast(label, tf.float32)
+    label = features['label']
+    # label = tf.reshape(label, [2, 1])
     label = tf.cast(label, tf.float32)
 
     return img, label
