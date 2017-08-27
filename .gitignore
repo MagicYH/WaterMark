@@ -1,3 +1,4 @@
 image/source/*
+data/*
 model/*
 *.pyc

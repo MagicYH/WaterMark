@@ -78,7 +78,9 @@ class ImageHelper():
             y1 = int(round(sSize[1] * y1))
             y2 = int(round(sSize[1] * y2))
         
-        tImg = wImg.resize((x2 - x1, y2 - y1), Image.ANTIALIAS)
+        cImg = wImg.copy()
+        tImg = cImg.resize((x2 - x1, y2 - y1), Image.ANTIALIAS)
         box = (x1, y1, x2, y2)
-        sImg.paste(tImg, box)
+        # I have to write like this to keep water image transparent
+        sImg.paste(tImg, box, mask=tImg)
         return sImg

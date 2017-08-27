@@ -1,3 +1,5 @@
+#
+
 import os
 import random
 import tensorflow as tf
@@ -15,6 +17,7 @@ class DataCreator():
             self._markImg = self._markImg.convert('RGBA')
         [self._markWidth, self._markHeight] = self._markImg.size
         self._outPath = self._cwd + outPath
+        self._recordPath = self._outPath + "/data.tfrecord"
         self._tWidth = width
         self._tHeight = height
     
@@ -35,24 +38,40 @@ class DataCreator():
         """
         count = 0
 
-        # writer = tf.python_io.TFRecordWriter("train.tfrecords")
+        writer = tf.python_io.TFRecordWriter(self._recordPath)
         for imgName in os.listdir(self._sourcePath):
             path = self._sourcePath + "/" + imgName
             img = Image.open(path)
-            if img.mode != 'RGBA':
-                img = img.convert('RGBA')
+            # if img.mode != 'RGBA':
+            #     img = img.convert('RGBA')
+            img = img.convert('L')
             [width, height] = img.size
-            wNum = int(round((width - self._tWidth) / 100))
-            hNum = int(round((height - self._tHeight) / 100))
+            if width < self._tWidth or height < self._tHeight:
+                continue
+            wNum = int(round((width - self._tWidth) / 100)) + 1
+            hNum = int(round((height - self._tHeight) / 100)) + 1
             for x in range(wNum):
                 for y in range(hNum):
                     regin = (x * 100, y * 100, x * 100 + self._tWidth, y * 100 + self._tHeight)
                     tmpImg = img.crop(regin)
                     count = count + 1
+                    label = 0
                     if count % 2 == 1:
                         tmpImg = self._addWaterRandPos(tmpImg)
-                    tmpImg.save(self._outPath + "/" + str(count) + ".jpg")
-
+                        label = 1
+                    
+                    # tmpImg = tmpImg.convert("L")
+                    if count % 200 == 1:
+                        tmpImg.save(self._outPath + "/" + str(count) + ".png")
+                    # tmpImg.save(self._outPath + "/" + str(count) + ".png")
+                    imgRaw = tmpImg.tobytes()
+                    example = tf.train.Example(features=tf.train.Features(feature={
+                        "label": tf.train.Feature(int64_list=tf.train.Int64List(value=[label])),
+                        'img_raw': tf.train.Feature(bytes_list=tf.train.BytesList(value=[imgRaw]))
+                    }))
+                    writer.write(example.SerializeToString())  #serialize example into string
+        print("Create %d images" % count)
+        writer.close()
 
     def _addWaterRandPos(self, sImg):
         # Random size, 15% ~ 30%
