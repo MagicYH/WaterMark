@@ -2,3 +2,4 @@ image/source/*
 data/*
 model/*
 *.pyc
+*.DS_Store
