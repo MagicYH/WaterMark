@@ -32,20 +32,22 @@ def Train(inputPath, width, height):
 
     img, label = read_data(inputPath, width, height)
     img_batch, label_batch = tf.train.shuffle_batch([img, label], batch_size=50, capacity=1000, min_after_dequeue=500)
-
+    saver = tf.train.Saver()
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
         print("Data and model are ready, begin to train")
-        for i in range(1000):
+        for i in range(10000):
             img_data, img_label = sess.run([img_batch, label_batch])
-            if i % 2 == 0:
+            if i % 100 == 0:
                 train_accuracy = accuracy.eval(feed_dict={
                         x: img_data, y_: img_label, keep_prob: 1.0})
                 print('step %d, training accuracy %g' % (i, train_accuracy))
+                saver.save(sess, "model/identify/train.model")
             train_step.run(feed_dict={x: img_data, y_: img_label, keep_prob: 0.5})
 
+        saver.save(sess, "model/identify/train.model")
         # print('test accuracy %g' % accuracy.eval(feed_dict={
         #         x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
 
