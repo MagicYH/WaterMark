@@ -36,30 +36,24 @@ def GetModel(x):
         
 
     with tf.name_scope('fc1'):
-        # w_fc1 = weightVariable([20 * 15 * 64, 4092])
-        # b_fc1 = biasVariable([4092])
-
-        # h_pool2_flat = tf.reshape(h_pool3, [-1, 20 * 15 * 64])
-        # h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, w_fc1) + b_fc1)
-
-        reshape = tf.reshape(pool2, [FLAGS.batch_size, -1])
+        reshape = tf.reshape(h_pool2, [100, -1])
         dim = reshape.get_shape()[1].value
-        weights = _variable_with_weight_decay('weights', shape=[dim, 384],
-                                            stddev=0.04, wd=0.004)
-        biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
-        local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
-
-    with tf.name_scope('dropout'):
-        keep_prob = tf.placeholder(tf.float32)
-        h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+        weights = weightVariable([dim, 384])
+        biases = biasVariable([384])
+        h_fc1 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name='fc1')
 
     with tf.name_scope('fc2'):
-        w_fc2 = weightVariable([4092, 2])
-        b_fc2 = biasVariable([2])
+        w_fc2 = weightVariable([384, 192])
+        b_fc2 = biasVariable([192])
 
-        y_conv = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
+        h_fc2 = tf.nn.relu(tf.matmul(h_fc1, w_fc2) + b_fc2, name='fc2')
+
+    with tf.name_scope('soft_max'):
+        w_sm = weightVariable([192, 2])
+        b_sm = biasVariable([2])
+        y_conv = tf.add(tf.matmul(h_fc2, w_sm), b_sm, name='soft_max')
     
-    return y_conv, keep_prob
+    return y_conv
 
 def conv2d(x, W):
 	"""conv2d returns a 2d convolution layer with full stride."""
