@@ -1,14 +1,14 @@
 import tempfile
 
 import tensorflow as tf
-from src.model.Identify import GetModel
+from src.model.Identify2 import GetModel
 
-def Train(inputPath, width, height):
+def Train(inputPath, width = 81, height = 24):
     # Create the model
-    x = tf.placeholder(tf.float32, [None, width, height, 1])
+    x = tf.placeholder(tf.float32, [100, width, height, 1])
 
     # Define loss and optimizer
-    y_ = tf.placeholder(tf.float32, [None, 2])
+    y_ = tf.placeholder(tf.float32, [100, 2])
 
     # Build the graph for the deep net
     y_conv = GetModel(x)
@@ -42,11 +42,11 @@ def Train(inputPath, width, height):
             img_data, img_label = sess.run([img_batch, label_batch])
             if i % 1000 == 0 and i != 0:
                 train_accuracy = accuracy.eval(feed_dict={
-                        x: img_data, y_: img_label, keep_prob: 1.0})
+                        x: img_data, y_: img_label})
                 print('step %d, training accuracy %g' % (i, train_accuracy))
                 saver.save(sess, "model/identify/train.model")
             print("execute %d" % i)
-            train_step.run(feed_dict={x: img_data, y_: img_label, keep_prob: 0.5})
+            train_step.run(feed_dict={x: img_data, y_: img_label})
 
         saver.save(sess, "model/identify/train.model")
         # print('test accuracy %g' % accuracy.eval(feed_dict={
