@@ -62,8 +62,9 @@ class DataCreator():
                         label = [0, 1]
                     imgRaw = tmpImg.tobytes()
                     
-                    if count % 200 == 1:
-                        tmpImg.save(self._outPath + "/" + str(count) + ".png")
+                    # if count % 200 == 1:
+                    #     tmpImg.save(self._outPath + "/" + str(count) + ".png")
+                    tmpImg.save(self._outPath + "/" + str(count) + ".png")
                     
                     example = tf.train.Example(features=tf.train.Features(feature={
                         "label": tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
@@ -75,7 +76,8 @@ class DataCreator():
 
     def _addWaterRandPos(self, sImg):
         # Random size, 15% ~ 30%
-        percent = 15.0 + random.randint(0, 15)
+        # percent = 15.0 + random.randint(0, 15)
+        percent = 30
         
         # x1 start with 10 percent
         x1 = 10 + random.randint(0, 50)
