@@ -3,6 +3,8 @@
 import os
 import random
 import tensorflow as tf
+import numpy
+from scipy import signal
 from PIL import Image
 from src.data.img.ImageHelper import ImageHelper
 
@@ -37,8 +39,9 @@ class DataCreator():
             IOError          
         """
         count = 0
-        dWidth = int(self._tWidth / 3)
-        dHeight = int(self._tHeight / 3)
+        cc = 0
+        dWidth = int(self._tWidth)
+        dHeight = int(self._tHeight)
         writer = tf.python_io.TFRecordWriter(self._recordPath)
         for imgName in os.listdir(self._sourcePath):
             path = self._sourcePath + "/" + imgName
@@ -47,8 +50,9 @@ class DataCreator():
             #     img = img.convert('RGBA')
             img = img.convert('L')
             [width, height] = img.size
-            height = int(400 * height / width);
-            width = 400
+            height = int(405 * height / width);
+            width = 405
+            img = img.resize((width, height), Image.ANTIALIAS)
             wNum = int(round((width - self._tWidth) / dWidth)) + 1
             hNum = int(round((height - self._tHeight) / dHeight)) + 1
             for x in range(wNum):
@@ -59,27 +63,32 @@ class DataCreator():
                     if count % 2 == 1:
                         self._addWaterRandPos(img, x1, y1)
 
-            
+            kernel = [[0, -1, 0],
+                      [-1, 4, -1],
+                      [0, -1, 0]]
+            imgData = numpy.array(img)
+            imgData = signal.convolve2d(imgData, kernel, mode='same')
+            imgData = (imgData - numpy.min(imgData))
+            imgData = imgData * 255.0 / numpy.max(imgData)
+            imgData = imgData.astype('uint8')
+            img = Image.fromarray(imgData, 'L')
 
             for x in range(wNum):
                 for y in range(hNum):
-                    count = count + 1
+                    cc = cc + 1
                     x1 = x * dWidth
                     y1 = y * dHeight
-                    if count % 2 == 1:
-                        self._addWaterRandPos(img, x1, y1)
                     regin = (x * dWidth, y * dHeight, x * dWidth + self._tWidth, y * dHeight + self._tHeight)
                     tmpImg = img.crop(regin)
-                    count = count + 1
 
                     label = [1, 0]
-                    if count % 2 == 1:
-                        tmpImg = self._addWaterRandPos(tmpImg)
+                    if cc % 2 == 1:
+                        # tmpImg = self._addWaterRandPos(tmpImg)
                         label = [0, 1]
                     imgRaw = tmpImg.tobytes()
                     
-                    if count % 200 == 1:
-                        tmpImg.save(self._outPath + "/" + str(count) + ".png")
+                    if cc % 20 == 1:
+                        tmpImg.save(self._outPath + "/" + str(cc) + ".png")
                     
                     example = tf.train.Example(features=tf.train.Features(feature={
                         "label": tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
