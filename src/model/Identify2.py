@@ -13,7 +13,7 @@ def GetModel(x):
     #     x_image = tf.reshape(x, [-1, 640, 480, 1])
 
     with tf.name_scope('conv1'):
-        w_conv1 = weightVariable([5, 3, 1, 64])
+        w_conv1 = weightVariable([5, 5, 1, 64])
         b_conv1 = biasVariable([64])
         h_conv1 = tf.nn.relu(conv2d(x, w_conv1) + b_conv1)
     
@@ -24,7 +24,7 @@ def GetModel(x):
                     name='norm1')
 
     with tf.name_scope('conv2'):
-        w_conv2 = weightVariable([5, 3, 64, 64])
+        w_conv2 = weightVariable([5, 5, 64, 64])
         b_conv2 = biasVariable([64])
         h_conv2 = tf.nn.relu(conv2d(h_norm1, w_conv2) + b_conv2)
     
