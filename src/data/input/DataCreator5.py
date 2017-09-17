@@ -1,9 +1,10 @@
-#
+#coding=utf-8
 
 import os
 import random
 import tensorflow as tf
 import numpy
+import cv2
 from scipy import signal
 from PIL import Image
 from src.data.img.ImageHelper import ImageHelper
@@ -70,9 +71,25 @@ class DataCreator():
             imgData = signal.convolve2d(imgData, kernel, mode='same')
             imgData = (imgData - numpy.min(imgData))
             imgData = imgData * 255.0 / numpy.max(imgData)
-            # mean = imgData.mean()
+
+            mean = imgData.mean() * 1.008
+            imgData[imgData > mean] = 255
+            imgData[imgData <=  mean] = 0
+
+            # imgData = imgData.astype('uint8')
+            # img = Image.fromarray(imgData, 'L')
+            # tmpPath = self._outPath + "/tmp.png"
+            # img.save(tmpPath)
+
+            # cvImg = cv2.imread(tmpPath, 0)  # 读取灰度图像
+            # hist = cv2.equalizeHist(cvImg)
+            # cv2.imwrite(tmpPath, hist)
+
+            # img = Image.open(tmpPath)
+            # imgData = numpy.array(img)
+            # mean = imgData.mean() * 1.3
             # imgData[imgData > mean] = 255
-            # imgData[imgData <=  mean] = 0
+            # imgData[imgData <= mean] = 0
 
             imgData = imgData.astype('uint8')
             img = Image.fromarray(imgData, 'L')
@@ -85,14 +102,20 @@ class DataCreator():
                     regin = (x * dWidth, y * dHeight, x * dWidth + self._tWidth, y * dHeight + self._tHeight)
                     tmpImg = img.crop(regin)
 
-                    label = [1, 0]
-                    if cc % 2 == 1:
-                        # tmpImg = self._addWaterRandPos(tmpImg)
-                        label = [0, 1]
                     imgRaw = tmpImg.tobytes()
+                    tmpImgData = numpy.array(tmpImg)
+                    
+                    labelFlag = 0
+                    label = [1, 0]
+                    mean = tmpImgData.mean();
+                    std = numpy.std(tmpImgData);
+                    if cc % 2 == 1 and mean < 108 and std < 125:
+                        labelFlag = 1
+                        label = [0, 1]
                     
                     if cc % 20 == 1:
-                        tmpImg.save(self._outPath + "/" + str(cc) + ".png")
+                        print("index: %d, mean: %d, std: %d" % (cc, mean, std))
+                        tmpImg.save(self._outPath + "/" + str(cc) + "_" + str(labelFlag) + ".png")
                     
                     example = tf.train.Example(features=tf.train.Features(feature={
                         "label": tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
