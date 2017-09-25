@@ -9,24 +9,34 @@ class Model():
         self._height = 80
         self._in_channels = 3
 
-    def Train(self):
+    def Train(self, loop_count):
 
         if self._inputPath is None:
             raise Exception("Input path can't be empty under train model")
         
         with tf.Session() as self._sess:
             if self._modelPath is None:
-                soft_max, train, keep_prob = self.BuildModel()
-                self._sess.run(tf.global_variables_initializer())
+                soft_max, train, keep_prob, loss = self.BuildModel()
             else:
                 saver = tf.train.import_meta_graph(self._modelPath + ".meta")
                 saver.restore(self._sess, self._modelPath)
                 graph = tf.get_default_graph()
 
-                soft_max = graph.get_tensor_by_name('soft_max:0')
+                # soft_max = graph.get_tensor_by_name('soft_max:0')
+                soft_max = tf.get_collection('soft_max')[0]
                 train = tf.get_collection('train')[0]
                 keep_prob = tf.get_collection('keep_prob')[0]
+                loss = tf.get_collection('loss')[0]
+            
+            self._init_data_reader()
+            self._sess.run(tf.global_variables_initializer())
 
+            for i in range(loop_count):
+                img, label = self._next_batch();
+                self._sess.run([train], feed_dict = {x: img, label: label})
+                if i % 20 == 19:
+                    current_loss = self._sess.run([loss], feed_dict = {x: img, label: label})
+                    print('step %d, training loss %g' % (i, current_loss))
 
     def BuildModel(self):
         """Build identify water mark model with vgg
@@ -71,6 +81,7 @@ class Model():
 
         fc3 = self._fc_layer(fc2_out, 1024, 2, 'fc3')
         soft_max = tf.nn.softmax(fc3, name = 'soft_max')
+        tf.add_to_collection('soft_max', soft_max)
 
         cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=label, logits=soft_max, name='cross_entropy')
         loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
@@ -83,7 +94,7 @@ class Model():
             tf.summary.scalar('mean', loss)
             tf.summary.scalar('stddev', tf.sqrt(tf.reduce_mean(tf.square(soft_max - loss))))
 
-        return soft_max, train, keep_prob
+        return soft_max, train, keep_prob, loss
 
     def _conv_layer(self, input, in_channel, out_channel, name):
         with tf.name_scope(name):
@@ -119,7 +130,7 @@ class Model():
         b = tf.variable(initial, name + "_b")
         return w, b
 
-    def _read_data(self):
+    def _init_data_reader(self):
         queue = tf.train.string_input_producer([self._inputPath])
 
         reader = tf.TFRecordReader()
@@ -138,5 +149,9 @@ class Model():
         
         self._img, self._label = tf.train.shuffle_batch([img, label], batch_size=100, capacity=2000, min_after_dequeue=500)
 
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess = self._sess, coord = coord)
+
     def _next_batch(self):
-        pass
+        img, label = self._sess.run([self._img, self._label])
+        return img, label
