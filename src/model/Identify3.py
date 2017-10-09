@@ -1,4 +1,9 @@
+import os
+import random
+import numpy as np
 import tensorflow as tf
+from PIL import Image
+from src.data.img.ImageHelper import ImageHelper
 
 class Model():
     def __init__(self, modelPath = None, summaryPath = None, inputPath = None):
@@ -9,15 +14,75 @@ class Model():
         self._height = 80
         self._in_channels = 3
 
+    def BuildData(self, markPath, sourcePath, outPath):
+        markImg = Image.open(markPath)
+        [markWidth, markHeight] = markImg.size
+        tfWriter = tf.python_io.TFRecordWriter(outPath + ".record")
+        dWidth = int(self._width / 4)
+        dHeight = int(self._height / 4)
+        for imgName in os.listdir(sourcePath):
+            imgPath = sourcePath + "/" + imgName
+            img = Image.open(imgPath)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            # img.getdata()
+            # if imgName == "00013_lighthouse_1280x800.jpg":
+            #     [r, g, b] = img.split()
+            #     print(np.array(r))
+            #     print(np.array(g))
+            #     print(np.array(b))
+            #     imgRaw = img.tobytes()
+            #     print("%d, %d, %d" % (ord(imgRaw[0]), ord(imgRaw[1]), ord(imgRaw[2])))
+            #     # print(np.array(img))
+            #     # r.show()
+            #     # g.show()
+            #     # b.show()
+            #     exit()
+            [iWidth, iHeight] = img.size
+            iHeight = int(400 * iHeight / iWidth)
+            img = img.resize((400, iHeight), Image.BICUBIC)
+            # wNum = int(round(iWidth / dWidth))
+            # hNum = int(round(iHeight / dHeight))
+            wNum = int(round((iWidth - self._width) / dWidth))
+            hNum = int(round((iHeight - self._height) / dHeight))
+            count = 0
+            for x in range(wNum):
+                for y in range(hNum):
+                    regin = (x * dWidth, y * dHeight, x * dWidth + self._width, y * dHeight + self._height)
+                    tmpImg = img.crop(regin)
+                    count = count + 1
+                    label = [1, 0]
+                    if count % 2 == 1:
+                        label = [0, 1]
+                        tmpImg = self._addWater(tmpImg, markImg)
+                    if count % 20 == 1:
+                        tmpImg.save(outPath + "/" + str(count) + ".png")
+                    
+                    [r, g, b] = tmpImg.split()
+                    d = np.append(np.array(r), np.array(g))
+                    d = np.append(d, np.array(b))
+                    imgRaw = d.tobytes()
+                    example = tf.train.Example(features=tf.train.Features(feature={
+                        "label": tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
+                        'img': tf.train.Feature(bytes_list=tf.train.BytesList(value=[imgRaw]))
+                    }))
+                    tfWriter.write(example.SerializeToString())
+            
+        print("Create %d images" % count)
+        tfWriter.close()
+
+
     def Train(self, loop_count):
 
         if self._inputPath is None:
             raise Exception("Input path can't be empty under train model")
         
         with tf.Session() as self._sess:
-            if self._modelPath is None:
+            if self._modelPath is None or os.path.exists(self._modelPath) == False:
+                print("Build new model")
                 soft_max, train, keep_prob, loss = self.BuildModel()
             else:
+                print("Recover model from %s" % self._modelPath)
                 saver = tf.train.import_meta_graph(self._modelPath + ".meta")
                 saver.restore(self._sess, self._modelPath)
                 graph = tf.get_default_graph()
@@ -28,21 +93,26 @@ class Model():
                 keep_prob = tf.get_collection('keep_prob')[0]
                 loss = tf.get_collection('loss')[0]
             
+            soft_max, train, keep_prob, loss, x, label = self.BuildModel()
+            
+            saver = tf.train.Saver()
             self._init_data_reader()
             self._sess.run(tf.global_variables_initializer())
 
             for i in range(loop_count):
-                img, label = self._next_batch();
-                self._sess.run([train], feed_dict = {x: img, label: label})
+                img, _y = self._next_batch()
+                self._sess.run([train], feed_dict = {x: img, label: _y, keep_prob: 0.5})
                 if i % 20 == 19:
-                    current_loss = self._sess.run([loss], feed_dict = {x: img, label: label})
+                    current_loss = self._sess.run([loss], feed_dict = {x: img, label: _y, keep_prob: 1.0})
+                    saver.save(self._sess, self._modelPath)
                     print('step %d, training loss %g' % (i, current_loss))
+                print('step %d' % i)
 
     def BuildModel(self):
         """Build identify water mark model with vgg
         """
-        x = tf.placeholder(tf.float32, [None, self._width, self._height, self._in_channels])
-        label = tf.placeholder(tf.float32, [None, 2])
+        x = tf.placeholder(tf.float32, [100, self._width, self._height, self._in_channels])
+        label = tf.placeholder(tf.float32, [100, 2])
         tf.add_to_collection('x', x)
         tf.add_to_collection('label', label)
 
@@ -60,18 +130,19 @@ class Model():
 
         conv4_1 = self._conv_layer(pool3, 256, 512, 'conv4_1')
         conv4_2 = self._conv_layer(conv4_1, 512, 512, 'conv4_2')
+        conv4_3 = self._conv_layer(conv4_2, 512, 512, 'conv4_3')
         pool4 = self._max_pool(conv4_2, 'pool4')
 
-        conv5_1 = self._conv_layer(pool4, 512, 512, 'conv5_1')
-        conv5_2 = self._conv_layer(conv5_1, 512, 512, 'conv5_2')
-        conv5_3 = self._conv_layer(conv5_2, 512, 512, 'conv5_3')
-        pool5 = self._max_pool(conv5_3, 'pool5')
+        # conv5_1 = self._conv_layer(pool4, 512, 512, 'conv5_1')
+        # conv5_2 = self._conv_layer(conv5_1, 512, 512, 'conv5_2')
+        # conv5_3 = self._conv_layer(conv5_2, 512, 512, 'conv5_3')
+        # pool5 = self._max_pool(conv5_3, 'pool5')
 
         # keep probility
         keep_prob = tf.placeholder(tf.float32, name = 'keep_prob')
         tf.add_to_collection('keep_prob', keep_prob)
 
-        fc1 = self._fc_layer(pool5, 25, 4096, 'fc1')
+        fc1 = self._fc_layer(pool4, 25 * 512, 4096, 'fc1')
         fc1_relu = tf.nn.relu(fc1)
         fc1_out = tf.nn.dropout(fc1_relu, keep_prob)
 
@@ -94,7 +165,7 @@ class Model():
             tf.summary.scalar('mean', loss)
             tf.summary.scalar('stddev', tf.sqrt(tf.reduce_mean(tf.square(soft_max - loss))))
 
-        return soft_max, train, keep_prob, loss
+        return soft_max, train, keep_prob, loss, x, label
 
     def _conv_layer(self, input, in_channel, out_channel, name):
         with tf.name_scope(name):
@@ -124,20 +195,21 @@ class Model():
 
     def _get_fc_var(self, in_size, out_size, name):
         initial = tf.truncated_normal([in_size, out_size], 0.0, 0.001)
-        w = tf.variable(initial, name + "_w")
+        w = tf.Variable(initial, name + "_w")
 
         initial = tf.truncated_normal([out_size], .0, .001)
-        b = tf.variable(initial, name + "_b")
+        b = tf.Variable(initial, name + "_b")
         return w, b
 
     def _init_data_reader(self):
-        queue = tf.train.string_input_producer([self._inputPath])
+        queue = tf.train.string_input_producer([self._inputPath + ".record"])
 
         reader = tf.TFRecordReader()
         _, serialize = reader.read(queue)
+
         features = tf.parse_single_example(serialize, features = {
-            'label': tf.FixedLenFeature([2], tf.int32),
-            'img': tf.FixedLenFeature([], tf.string),
+            'label': tf.FixedLenFeature([2], tf.int64),
+            'img' : tf.FixedLenFeature([], tf.string),
         })
 
         img = tf.decode_raw(features['img'], tf.uint8)
@@ -155,3 +227,18 @@ class Model():
     def _next_batch(self):
         img, label = self._sess.run([self._img, self._label])
         return img, label
+
+    def _addWater(self, tmpImg, markImg):
+        percent = random.randint(90, 110)
+
+        [markWidth, markHeight] = markImg.size
+        width = int(markWidth * percent / 100)
+        height = int(markHeight * percent / 100)
+        
+        x1 = random.randint(0, self._width - width - 1)
+        y1 = random.randint(0, self._height - height - 1)
+
+        x2 = x1 + width
+        y2 = y1 + height
+
+        return ImageHelper.AddWaterWithImg(tmpImg, markImg, x1, y1, x2, y2)
