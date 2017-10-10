@@ -20,36 +20,24 @@ class Model():
         tfWriter = tf.python_io.TFRecordWriter(outPath + ".record")
         dWidth = int(self._width / 4)
         dHeight = int(self._height / 4)
+        count = 0
         for imgName in os.listdir(sourcePath):
             imgPath = sourcePath + "/" + imgName
             img = Image.open(imgPath)
             if img.mode != 'RGB':
                 img = img.convert('RGB')
-            # img.getdata()
-            # if imgName == "00013_lighthouse_1280x800.jpg":
-            #     [r, g, b] = img.split()
-            #     print(np.array(r))
-            #     print(np.array(g))
-            #     print(np.array(b))
-            #     imgRaw = img.tobytes()
-            #     print("%d, %d, %d" % (ord(imgRaw[0]), ord(imgRaw[1]), ord(imgRaw[2])))
-            #     # print(np.array(img))
-            #     # r.show()
-            #     # g.show()
-            #     # b.show()
-            #     exit()
+
             [iWidth, iHeight] = img.size
             iHeight = int(400 * iHeight / iWidth)
+            iWidth = 400
             img = img.resize((400, iHeight), Image.BICUBIC)
-            # wNum = int(round(iWidth / dWidth))
-            # hNum = int(round(iHeight / dHeight))
             wNum = int(round((iWidth - self._width) / dWidth))
             hNum = int(round((iHeight - self._height) / dHeight))
-            count = 0
             for x in range(wNum):
                 for y in range(hNum):
                     regin = (x * dWidth, y * dHeight, x * dWidth + self._width, y * dHeight + self._height)
                     tmpImg = img.crop(regin)
+
                     count = count + 1
                     label = [1, 0]
                     if count % 2 == 1:
@@ -80,20 +68,21 @@ class Model():
         with tf.Session() as self._sess:
             if self._modelPath is None or os.path.exists(self._modelPath) == False:
                 print("Build new model")
-                soft_max, train, keep_prob, loss = self.BuildModel()
+                soft_max, train, keep_prob, loss, x, label = self.BuildModel()
             else:
                 print("Recover model from %s" % self._modelPath)
                 saver = tf.train.import_meta_graph(self._modelPath + ".meta")
                 saver.restore(self._sess, self._modelPath)
                 graph = tf.get_default_graph()
 
-                # soft_max = graph.get_tensor_by_name('soft_max:0')
                 soft_max = tf.get_collection('soft_max')[0]
                 train = tf.get_collection('train')[0]
                 keep_prob = tf.get_collection('keep_prob')[0]
                 loss = tf.get_collection('loss')[0]
+                x = tf.get_collection('x')[0]
+                label = tf.get_collection('label')[0]
             
-            soft_max, train, keep_prob, loss, x, label = self.BuildModel()
+            # soft_max, train, keep_prob, loss, x, label = self.BuildModel()
             
             saver = tf.train.Saver()
             self._init_data_reader()
@@ -105,7 +94,7 @@ class Model():
                 if i % 20 == 19:
                     current_loss = self._sess.run([loss], feed_dict = {x: img, label: _y, keep_prob: 1.0})
                     saver.save(self._sess, self._modelPath)
-                    print('step %d, training loss %g' % (i, current_loss))
+                    print('step %d, training loss %g' % (i, current_loss[0]))
                 print('step %d' % i)
 
     def BuildModel(self):
@@ -157,7 +146,7 @@ class Model():
         cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=label, logits=soft_max, name='cross_entropy')
         loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
         tf.add_to_collection('loss', loss)
-        train = tf.train.GradientDescentOptimizer(0.0001).minimize(loss)
+        train = tf.train.GradientDescentOptimizer(0.001).minimize(loss)
         tf.add_to_collection('train', train)
         
         # summary data
