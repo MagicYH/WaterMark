@@ -158,6 +158,10 @@ class Model():
         tf.add_to_collection('cross_entropy', cross_entropy)
         tf.add_to_collection('loss', loss)
         tf.add_to_collection('train', train)
+
+        stddev = tf.square(cross_entropy - tf.reduce_mean(cross_entropy))
+        tf.summary.scalar("loss", loss)
+        tf.summary.scalar("stddev", stddev)
         
         # summary data
         with tf.name_scope('summaries'):
