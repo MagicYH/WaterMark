@@ -190,6 +190,14 @@ class Model():
 
         return fc3, train, keep_prob, loss, x, label
 
+    def RestoreModel(self, sess):
+        saver = tf.train.import_meta_graph(self._modelPath + "/model.meta")
+        saver.restore(sess, self._modelPath + "/model")
+        x = tf.get_collection('x')[0]
+        fc3 = tf.get_collection('fc3')[0]
+        keep_prob = tf.get_collection('keep_prob')[0]
+        return x, fc3, keep_prob
+
     def _conv_layer(self, x, width, height,  in_channel, out_channel, name):
         with tf.name_scope(name):
             w, b = self._get_conv_var(
